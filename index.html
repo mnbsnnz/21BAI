@@ -254,6 +254,13 @@ button{
 }
 </style>
 
+
+<style id="working-mode-style">
+#m021Start{max-width:980px;margin:22px auto 10px;padding:26px;background:#fff;border:1px solid #e7eaf0;border-radius:26px;box-shadow:0 16px 45px rgba(23,32,51,.09)}
+#m021Start h1{margin:8px 0 2px;font-size:30px}#m021Start h2{margin:0 0 8px;font-size:20px;font-weight:700}.book-badge{font-size:12px;font-weight:900;letter-spacing:.08em;color:#6d28d9}.book-meta{color:#6b7280}.start-mode-title{font-weight:800;margin:24px 0 10px}.start-modes{display:grid;grid-template-columns:1fr 1fr;gap:12px}.start-mode{margin:0;background:#fff;color:#172033;border:1px solid #ddd6fe;box-shadow:none;text-align:left}.start-mode b,.start-mode span{display:block}.start-mode span{font-size:12px;font-weight:500;color:#6b7280;margin-top:5px}.start-mode.active,.mini-mode.active{background:linear-gradient(135deg,#6d28d9,#8b5cf6);color:#fff}.start-mode.active span{color:#f3e8ff}.section-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:11px}.jump-card{display:flex;flex-direction:column;gap:5px;text-decoration:none;color:#172033;border:1px solid #e7eaf0;border-radius:16px;padding:14px;background:#fafaff}.jump-card>span{font-size:11px;font-weight:900;color:#7c3aed}.jump-card small{color:#6b7280}.section{scroll-margin-top:15px}.section-head{display:flex;justify-content:space-between;gap:14px;align-items:flex-start}.section-kicker{font-size:11px;font-weight:900;color:#7c3aed;letter-spacing:.06em}.section-mode{display:flex;gap:6px;min-width:138px}.mini-mode{width:auto;margin:0;padding:8px 11px;font-size:12px;background:#f5f3ff;color:#5b21b6;box-shadow:none}.explanation b{color:#5b21b6}#upNavigator{position:fixed;right:18px;bottom:20px;width:50px;height:50px;padding:0;margin:0;border-radius:50%;z-index:9999;background:linear-gradient(135deg,#6d28d9,#8b5cf6);box-shadow:0 8px 24px #6d28d944;font-size:23px}
+@media(max-width:650px){#m021Start{margin:10px;padding:18px;border-radius:20px}.start-modes{grid-template-columns:1fr}.section-cards{grid-template-columns:1fr 1fr}.section-head{display:block}.section-mode{margin:10px 0 4px}.jump-card{padding:11px;font-size:13px}}
+</style>
+
 </head>
 <body>
 <div class="wrap">
@@ -19730,7 +19737,169 @@ blocks.push({
   // КЕЛЕСІ БӨЛІМДЕРДІ ОСЫНЫҢ ҮСТІНЕ ҚОСАМЫЗ.
   // =========================================================
 
+
+/* ===== M021 WORKING TEST / QUIZ UI ===== */
+let activeMode = localStorage.getItem("m021mode") || "test";
+
+function setMode(mode){
+  activeMode = mode;
+  localStorage.setItem("m021mode", mode);
+  render();
+  window.scrollTo({top:0, behavior:"smooth"});
+}
+
+function answerQuiz(bIndex,qIndex,chosen){
+  if(activeMode!=="quiz") return;
+  const item=blocks[bIndex].questions[qIndex];
+  const box=document.querySelector(`.question[data-block="${bIndex}"][data-q="${qIndex}"]`);
+  if(!box || box.dataset.done==="1") return;
+
+  box.dataset.done="1";
+  const labels=box.querySelectorAll(".option");
+  labels[item.answer].classList.add("correct");
+  if(Number(chosen)!==item.answer) labels[Number(chosen)].classList.add("wrong");
+  box.querySelector(".explanation").style.display="block";
+  box.querySelectorAll("input").forEach(x=>x.disabled=true);
+
+  updateQuizResult(bIndex);
+}
+
+function updateQuizResult(bIndex){
+  const section=document.getElementById(blocks[bIndex].id);
+  const answered=[...section.querySelectorAll(".question")].filter(x=>x.dataset.done==="1");
+  let score=0;
+  answered.forEach(box=>{
+    const qi=Number(box.dataset.q);
+    const selected=box.querySelector("input:checked");
+    if(selected && Number(selected.value)===blocks[bIndex].questions[qi].answer) score++;
+  });
+  const total=blocks[bIndex].questions.length;
+  const result=document.getElementById(`result-${bIndex}`);
+  result.textContent=answered.length===total
+    ? `Нәтиже: ${score} / ${total}`
+    : `Жауап берілді: ${answered.length} / ${total} · Дұрыс: ${score}`;
+}
+
+checkBlock = function(bIndex){
+  const block=blocks[bIndex];
+  let score=0;
+  block.questions.forEach((item,qIndex)=>{
+    const box=document.querySelector(`.question[data-block="${bIndex}"][data-q="${qIndex}"]`);
+    const labels=box.querySelectorAll(".option");
+    const selected=box.querySelector("input:checked");
+    labels.forEach(x=>x.classList.remove("correct","wrong"));
+    labels[item.answer].classList.add("correct");
+    if(selected){
+      const chosen=Number(selected.value);
+      if(chosen===item.answer) score++;
+      else labels[chosen].classList.add("wrong");
+    }
+    box.querySelector(".explanation").style.display="block";
+  });
+  document.getElementById(`result-${bIndex}`).textContent=`Нәтиже: ${score} / ${block.questions.length}`;
+};
+
+render = function(){
+  const app=document.getElementById("app");
+  app.innerHTML="";
+
+  blocks.forEach((block,bIndex)=>{
+    const section=document.createElement("section");
+    section.className="section";
+    section.id=block.id;
+
+    section.innerHTML=`
+      <div class="section-head">
+        <div>
+          <div class="section-kicker">БӨЛІМ ${bIndex+1}</div>
+          <h2>${block.title}</h2>
+        </div>
+        <div class="section-mode">
+          <button type="button" class="mini-mode ${activeMode==="test"?"active":""}" onclick="setMode('test')">Тест</button>
+          <button type="button" class="mini-mode ${activeMode==="quiz"?"active":""}" onclick="setMode('quiz')">Квиз</button>
+        </div>
+      </div>
+      ${block.concepts&&block.concepts.length?`
+      <div class="concepts lecture-concepts">
+        <div class="concept-title">Маңызды ұғымдар</div>
+        <div class="concept-grid">${block.concepts.map(c=>`
+          <div class="concept-card"><div class="term">${c.term}</div><div class="meaning">${c.meaning}</div></div>
+        `).join("")}</div>
+      </div>`:""}
+    `;
+
+    block.questions.forEach((item,qIndex)=>{
+      const box=document.createElement("div");
+      box.className="question";
+      box.dataset.block=bIndex; box.dataset.q=qIndex;
+      box.innerHTML=`
+        <div class="qtext">${qIndex+1}. ${item.q}</div>
+        ${item.options.map((opt,oIndex)=>`
+          <label class="option">
+            <input type="radio" name="b${bIndex}q${qIndex}" value="${oIndex}"
+              onchange="answerQuiz(${bIndex},${qIndex},${oIndex})">
+            <b>${String.fromCharCode(65+oIndex)})</b> ${opt}
+          </label>`).join("")}
+        <div class="explanation"><b>Түсіндірме:</b> ${item.exp}</div>`;
+      section.appendChild(box);
+    });
+
+    if(activeMode==="test"){
+      const btn=document.createElement("button");
+      btn.textContent="Нәтижені көрсету";
+      btn.onclick=()=>checkBlock(bIndex);
+      section.appendChild(btn);
+    }
+
+    const result=document.createElement("div");
+    result.className="result"; result.id=`result-${bIndex}`;
+    section.appendChild(result);
+    app.appendChild(section);
+  });
+};
+
+function buildStart(){
+  const old=document.getElementById("m021Start"); if(old) old.remove();
+  const start=document.createElement("section");
+  start.id="m021Start";
+  start.innerHTML=`
+    <div class="book-badge">M021 · 3-КІТАП</div>
+    <h1>А.А. Байтұрсынова</h1>
+    <h2>«Арнайы педагогика: проблемалар мен даму болашағы»</h2>
+    <p class="book-meta">Алматы, 2008 · Дәріс №1–45 · ${blocks.reduce((n,b)=>n+b.questions.length,0)} сұрақ</p>
+
+    <div class="start-mode-title">Өту режимін таңдаңыз</div>
+    <div class="start-modes">
+      <button class="start-mode ${activeMode==="test"?"active":""}" onclick="setMode('test')">
+        <b>ТЕСТ</b><span>Барлық жауаптан кейін нәтиже мен түсіндірме</span>
+      </button>
+      <button class="start-mode ${activeMode==="quiz"?"active":""}" onclick="setMode('quiz')">
+        <b>КВИЗ</b><span>Әр жауаптан кейін бірден дұрыс жауап пен түсіндірме</span>
+      </button>
+    </div>
+
+    <h3>Барлық бөлімдер</h3>
+    <div class="section-cards">
+      ${blocks.map((b,i)=>`<a href="#${b.id}" class="jump-card">
+        <span>${String(i+1).padStart(2,"0")}</span>
+        <b>${b.title}</b>
+        <small>${b.questions.length} сұрақ</small>
+      </a>`).join("")}
+    </div>`;
+  document.body.insertBefore(start,document.body.firstChild);
+}
+
 render();
+buildStart();
+
+if(!document.getElementById("upNavigator")){
+  const up=document.createElement("button");
+  up.id="upNavigator"; up.type="button"; up.innerHTML="↑";
+  up.setAttribute("aria-label","Жоғары");
+  up.onclick=()=>window.scrollTo({top:0,behavior:"smooth"});
+  document.body.appendChild(up);
+}
+
 </script>
 
 <!--
@@ -19741,18 +19910,5 @@ CONTINUATION POINT:
 -->
 
 
-<style id="final-ui">
-#modeHome{max-width:1100px;margin:22px auto;padding:16px}.modeChoices,.sectionCards{display:grid;gap:12px}.modeChoices{grid-template-columns:1fr 1fr}.sectionCards{grid-template-columns:repeat(auto-fit,minmax(210px,1fr))}.modeChoice,.sectionJump{padding:16px;border:1px solid #e5e7eb;border-radius:16px;background:#fff;color:inherit;text-decoration:none}.modeChoice{cursor:pointer;text-align:left}.modeChoice.active{outline:2px solid currentColor}#upNav{position:fixed;right:18px;bottom:20px;width:48px;height:48px;border:0;border-radius:50%;background:#fff;box-shadow:0 7px 24px #0003;font-size:22px;z-index:9999}@media(max-width:620px){.modeChoices{grid-template-columns:1fr}.sectionCards{grid-template-columns:1fr 1fr}}
-</style>
-<script id="final-ui-js">
-document.addEventListener("DOMContentLoaded",()=>{
- let mode=localStorage.getItem("m021mode")||"test", bs=(typeof blocks!=="undefined"?blocks:[]);
- const h=document.createElement("section");h.id="modeHome";
- h.innerHTML=`<h1>M021 · Арнайы педагогика</h1><div class="modeChoices"><button class="modeChoice" data-m="test"><b>Тест</b><br><small>Дұрыс жауап пен түсіндірме бөлім соңында</small></button><button class="modeChoice" data-m="quiz"><b>Квиз</b><br><small>Дұрыс жауап пен түсіндірме әр жауаптан кейін</small></button></div><h2>Бөлімдер</h2><div class="sectionCards">${bs.map((b,i)=>`<a class="sectionJump" href="#${b.id||"sec-"+i}"><b>${b.title}</b><br><small>${(b.questions||[]).length} сұрақ</small></a>`).join("")}</div>`;
- document.body.insertBefore(h,document.body.firstChild);
- function setMode(m){mode=m;window.M021_MODE=m;localStorage.setItem("m021mode",m);document.querySelectorAll(".modeChoice").forEach(x=>x.classList.toggle("active",x.dataset.m===m));document.dispatchEvent(new CustomEvent("m021modechange",{detail:{mode:m}}))}
- h.querySelectorAll(".modeChoice").forEach(x=>x.onclick=()=>setMode(x.dataset.m));setMode(mode);
- const u=document.createElement("button");u.id="upNav";u.textContent="↑";u.onclick=()=>scrollTo({top:0,behavior:"smooth"});document.body.appendChild(u);
-});</script>
 </body>
 </html>
