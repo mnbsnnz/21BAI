@@ -261,6 +261,17 @@ button{
 @media(max-width:650px){#m021Start{margin:10px;padding:18px;border-radius:20px}.start-modes{grid-template-columns:1fr}.section-cards{grid-template-columns:1fr 1fr}.section-head{display:block}.section-mode{margin:10px 0 4px}.jump-card{padding:11px;font-size:13px}}
 </style>
 
+
+<style id="mode-switch-fix">
+.start-mode,.mini-mode{cursor:pointer;touch-action:manipulation}
+.start-mode:focus-visible,.mini-mode:focus-visible{outline:3px solid currentColor;outline-offset:2px}
+.section-mode{align-items:center}
+@media(max-width:650px){
+  .section-mode{display:grid;grid-template-columns:1fr 1fr;width:100%}
+  .mini-mode{min-height:44px}
+}
+</style>
+
 </head>
 <body>
 <div class="wrap">
@@ -19742,10 +19753,17 @@ blocks.push({
 let activeMode = localStorage.getItem("m021mode") || "test";
 
 function setMode(mode){
+  const y = window.scrollY;
   activeMode = mode;
   localStorage.setItem("m021mode", mode);
+
   render();
-  window.scrollTo({top:0, behavior:"smooth"});
+
+  document.querySelectorAll("#m021Start .start-mode").forEach(btn=>{
+    btn.classList.toggle("active", btn.dataset.mode===mode);
+  });
+
+  requestAnimationFrame(()=>window.scrollTo({top:y, behavior:"auto"}));
 }
 
 function answerQuiz(bIndex,qIndex,chosen){
@@ -19870,10 +19888,10 @@ function buildStart(){
 
     <div class="start-mode-title">Өту режимін таңдаңыз</div>
     <div class="start-modes">
-      <button class="start-mode ${activeMode==="test"?"active":""}" onclick="setMode('test')">
+      <button class="start-mode ${activeMode==="test"?"active":""}" data-mode="test" onclick="setMode('test')">
         <b>ТЕСТ</b><span>Барлық жауаптан кейін нәтиже мен түсіндірме</span>
       </button>
-      <button class="start-mode ${activeMode==="quiz"?"active":""}" onclick="setMode('quiz')">
+      <button class="start-mode ${activeMode==="quiz"?"active":""}" data-mode="quiz" onclick="setMode('quiz')">
         <b>КВИЗ</b><span>Әр жауаптан кейін бірден дұрыс жауап пен түсіндірме</span>
       </button>
     </div>
